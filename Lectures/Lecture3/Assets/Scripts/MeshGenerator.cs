@@ -98,9 +98,9 @@ public class MeshGenerator : MonoBehaviour
 
                             const float eps = 0.01f;
                             _normals.Add(new Vector3(
-                                Field.F(p + Vector3.right * eps) - Field.F(p + Vector3.left * eps),
-                                Field.F(p + Vector3.up * eps) - Field.F(p + Vector3.down * eps),
-                                Field.F(p + Vector3.forward * eps) - Field.F(p + Vector3.back * eps)
+                                Field.F(p + Vector3.left * eps) - Field.F(p + Vector3.right * eps),
+                                Field.F(p + Vector3.down * eps) - Field.F(p + Vector3.up * eps),
+                                Field.F(p + Vector3.back * eps) - Field.F(p + Vector3.forward * eps)
                             ).normalized);
                         }
                     }
