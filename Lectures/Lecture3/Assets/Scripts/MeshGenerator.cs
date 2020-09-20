@@ -78,15 +78,16 @@ public class MeshGenerator : MonoBehaviour
                                     MarchingCubes.Tables._cubeVertices[MarchingCubes.Tables._cubeEdges[edges[j]][1]] *
                                     step;
 
-                            var p = (A * Field.F(B) - B * Field.F(A)) / (Field.F(B) - Field.F(A));
+                            var t = -Field.F(A) / (Field.F(B) - Field.F(A));
+                            var p = Vector3.Lerp(A, B, t);
 
                             // Uncomment for some animation:
-                            p += new Vector3
-                            (
-                                Mathf.Sin(Time.time + p.z),
-                                Mathf.Sin(Time.time + p.y),
-                                Mathf.Sin(Time.time + p.x)
-                            );
+                            // p += new Vector3
+                            // (
+                            //     Mathf.Sin(Time.time + p.z),
+                            //     Mathf.Sin(Time.time + p.y),
+                            //     Mathf.Sin(Time.time + p.x)
+                            // );
 
                             indices.Add(vertices.Count);
                             vertices.Add(p);
