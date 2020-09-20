@@ -6,6 +6,12 @@ public class MeshGenerator : MonoBehaviour
 {
     public MetaBallField Field = new MetaBallField();
 
+    public Vector3 viewportLeftUpperBound = new Vector3(-4, -4, -4);
+    public Vector3 viewportRightLowerBound = new Vector3(4, 4, 4);
+    public float step = 0.25f;
+
+    public float surfaceLevel;
+    
     private MeshFilter _filter;
     private Mesh _mesh;
 
@@ -43,17 +49,15 @@ public class MeshGenerator : MonoBehaviour
         // Generate mesh here. Below is a sample code of a cube generation.
         // ----------------------------------------------------------------
 
-        const float step = 0.25f;
-        for (float x = -4; x <= 4; x += step)
+        for (var x = viewportLeftUpperBound.x; x <= viewportRightLowerBound.x; x += step)
         {
-            for (float y = -4; y <= 4; y += step)
+            for (var y = viewportLeftUpperBound.y; y <= viewportRightLowerBound.y; y += step)
             {
-                for (float z = -4; z <= 4; z += step)
+                for (var z = viewportLeftUpperBound.z; z <= viewportRightLowerBound.z; z += step)
                 {
                     var currentPivotVertex = new Vector3(x, y, z);
 
                     var mask = 0;
-                    const float surfaceLevel = 0;
                     
                     for (var i = 0; i < MarchingCubes.Tables.CubeVertices.Length; ++i)
                     {
