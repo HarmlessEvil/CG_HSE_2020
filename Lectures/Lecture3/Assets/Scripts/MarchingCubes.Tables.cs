@@ -1,18 +1,18 @@
 ﻿using Unity.Mathematics;
 using UnityEngine;
 
-public class MarchingCubes
+public static class MarchingCubes
 {
     /// <summary>
     /// Converted from https://github.com/QianMo/GPU-Gems-Book-Source-Code/blob/master/GPU-Gems-3-CD-Content/content/01/demo/models/tables.nma
     /// CaseIndex can be calculated as a bit mask. I.e. index[i] = F(vertex[i]) > c
     /// Where F is the scalar field;
     /// Index is an int interpreted as an array of bits with index[0] being the least significant bit;
-    /// vertex[i] is the coordinate of i'th vertex.
+    /// vertex[i] is the coordinate of i-th vertex.
     ///
     /// See lecture slides for details.
     /// </summary>
-    public class Tables
+    public static class Tables
     {
         /// <summary>
         /// Positions of vertices of a single cube.
