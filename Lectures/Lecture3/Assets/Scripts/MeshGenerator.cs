@@ -9,9 +9,9 @@ public class MeshGenerator : MonoBehaviour
     private MeshFilter _filter;
     private Mesh _mesh;
 
-    private List<Vector3> vertices = new List<Vector3>();
-    private List<Vector3> normals = new List<Vector3>();
-    private List<int> indices = new List<int>();
+    private readonly List<Vector3> _vertices = new List<Vector3>();
+    private readonly List<Vector3> _normals = new List<Vector3>();
+    private readonly List<int> _indices = new List<int>();
 
     /// <summary>
     /// Executed by Unity upon object initialization. <see cref="https://docs.unity3d.com/Manual/ExecutionOrder.html"/>
@@ -34,9 +34,9 @@ public class MeshGenerator : MonoBehaviour
     /// </summary>
     private void Update()
     {
-        vertices.Clear();
-        indices.Clear();
-        normals.Clear();
+        _vertices.Clear();
+        _indices.Clear();
+        _normals.Clear();
 
         Field.Update();
         // ----------------------------------------------------------------
@@ -55,9 +55,9 @@ public class MeshGenerator : MonoBehaviour
                     var mask = 0;
                     const float surfaceLevel = 0;
                     
-                    for (var i = 0; i < MarchingCubes.Tables._cubeVertices.Length; ++i)
+                    for (var i = 0; i < MarchingCubes.Tables.CubeVertices.Length; ++i)
                     {
-                        var vertexPos = currentPivotVertex + MarchingCubes.Tables._cubeVertices[i] * step;
+                        var vertexPos = currentPivotVertex + MarchingCubes.Tables.CubeVertices[i] * step;
 
                         if (Field.F(vertexPos) >= surfaceLevel)
                         {
@@ -71,15 +71,15 @@ public class MeshGenerator : MonoBehaviour
                         var edges = MarchingCubes.Tables.CaseToVertices[mask][i];
                         for (var j = 0; j < 3; ++j)
                         {
-                            var A = currentPivotVertex +
-                                    MarchingCubes.Tables._cubeVertices[MarchingCubes.Tables._cubeEdges[edges[j]][0]] *
+                            var a = currentPivotVertex +
+                                    MarchingCubes.Tables.CubeVertices[MarchingCubes.Tables.CubeEdges[edges[j]][0]] *
                                     step;
-                            var B = currentPivotVertex +
-                                    MarchingCubes.Tables._cubeVertices[MarchingCubes.Tables._cubeEdges[edges[j]][1]] *
+                            var b = currentPivotVertex +
+                                    MarchingCubes.Tables.CubeVertices[MarchingCubes.Tables.CubeEdges[edges[j]][1]] *
                                     step;
 
-                            var t = -Field.F(A) / (Field.F(B) - Field.F(A));
-                            var p = Vector3.Lerp(A, B, t);
+                            var t = -Field.F(a) / (Field.F(b) - Field.F(a));
+                            var p = Vector3.Lerp(a, b, t);
 
                             // Uncomment for some animation:
                             // p += new Vector3
@@ -89,11 +89,11 @@ public class MeshGenerator : MonoBehaviour
                             //     Mathf.Sin(Time.time + p.x)
                             // );
 
-                            indices.Add(vertices.Count);
-                            vertices.Add(p);
+                            _indices.Add(_vertices.Count);
+                            _vertices.Add(p);
 
                             const float eps = 0.01f;
-                            normals.Add(new Vector3(
+                            _normals.Add(new Vector3(
                                 Field.F(p + Vector3.right * eps) - Field.F(p + Vector3.left * eps),
                                 Field.F(p + Vector3.up * eps) - Field.F(p + Vector3.down * eps),
                                 Field.F(p + Vector3.forward * eps) - Field.F(p + Vector3.back * eps)
@@ -106,9 +106,9 @@ public class MeshGenerator : MonoBehaviour
 
         // Here unity automatically assumes that vertices are points and hence (x, y, z) will be represented as (x, y, z, 1) in homogenous coordinates
         _mesh.Clear();
-        _mesh.SetVertices(vertices);
-        _mesh.SetTriangles(indices, 0);
-        _mesh.SetNormals(normals);
+        _mesh.SetVertices(_vertices);
+        _mesh.SetTriangles(_indices, 0);
+        _mesh.SetNormals(_normals);
 
         // Upload mesh data to the GPU
         _mesh.UploadMeshData(false);
