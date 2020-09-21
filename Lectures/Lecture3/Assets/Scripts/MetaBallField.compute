@@ -1,0 +1,102 @@
+#pragma kernel generate_mesh
+
+struct vertex
+{
+    float3 position;
+    float3 normal;
+};
+
+struct triangle_struct
+{
+    vertex vertices[3];
+};
+
+AppendStructuredBuffer<triangle_struct> mesh_buffer;
+
+float ball_radius;
+uint ball_count;
+StructuredBuffer<float3> ball_positions;
+
+float3 viewport_left_upper_bound;
+float3 viewport_right_lower_bound;
+float field_step;
+float surface_level;
+
+StructuredBuffer<float3> cube_vertices;
+StructuredBuffer<int2> cube_edges;
+Buffer<uint> case_to_triangles_count;
+
+struct lookup_table_record
+{
+    int3 edges[5];
+};
+
+StructuredBuffer<lookup_table_record> case_to_vertices;
+
+float f(float3 position)
+{
+    float res = 0;
+
+    for (uint i = 0; i < ball_count; ++i)
+    {
+        float3 new_vector = ball_positions[i] - position;
+
+        res += 1 / dot(new_vector, new_vector);
+    }
+
+    res *= ball_radius * ball_radius;
+
+    return res - 1;
+}
+
+float3 difference_scheme(float3 p)
+{
+    const float eps = 0.01;
+    
+    return normalize(
+        float3(
+            f(p - float3(eps, 0, 0)) - f(p + float3(eps, 0, 0)),
+            f(p - float3(0, eps, 0)) - f(p + float3(0, eps, 0)),
+            f(p - float3(0, 0, eps)) - f(p + float3(0, 0, eps))
+        )
+    );
+}
+
+[numthreads(1, 1, 1)]
+void generate_mesh(uint3 id: SV_DispatchThreadID)
+{
+    float3 current_pivot_vertex = viewport_left_upper_bound + id.xzy * field_step;
+
+    uint mask = 0;
+    for (uint i = 0; i < 8; ++i) // Cube has 8 vertices
+    {
+        float3 vertex_pos = current_pivot_vertex + cube_vertices[i] * field_step;
+
+        if (f(vertex_pos) >= surface_level)
+        {
+            mask |= 1 << i;
+        }
+    }
+
+    uint triangles_count = case_to_triangles_count[mask];
+    for (uint j = 0; j < triangles_count; ++j)
+    {
+        int3 edges = case_to_vertices[mask].edges[j];
+        triangle_struct my_triangle;
+
+        // It's necessary to unroll since arrays can't be natively addressed as lvalues
+        [unroll(3)] for (uint k = 0; k < 3; ++k) // Each triangle crosses 3 edges
+        {
+            float3 a = current_pivot_vertex + cube_vertices[cube_edges[edges[k]][0]] * field_step;
+            float3 b = current_pivot_vertex + cube_vertices[cube_edges[edges[k]][1]] * field_step;
+
+            float t = -f(a) / (f(b) - f(a));
+
+            // Usage of array as lvalue
+            my_triangle.vertices[k].position = lerp(a, b, t);
+            my_triangle.vertices[k].normal = difference_scheme(my_triangle.vertices[k].position);
+        }
+
+        mesh_buffer.Append(my_triangle);
+    }
+}
