@@ -5,6 +5,7 @@
         _BaseColor ("Color", Color) = (0, 0, 0, 1)
         _Roughness ("Roughness", Range(0.03, 1)) = 1
         _Cube ("Cubemap", CUBE) = "" {}
+        _Samples ("Samples", Range(256, 2048)) = 1024
     }
     SubShader
     {
@@ -26,6 +27,7 @@
             {
                 float4 vertex : POSITION;
                 fixed3 normal : NORMAL;
+                fixed4 tangent: TANGENT;
             };
 
             struct v2f
@@ -33,6 +35,7 @@
                 float4 clip : SV_POSITION;
                 float4 pos : TEXCOORD1;
                 fixed3 normal : NORMAL;
+                fixed4 tangent: TANGENT;
             };
 
             float4 _BaseColor;
@@ -47,6 +50,7 @@
                 o.clip = UnityObjectToClipPos(v.vertex);
                 o.pos = mul(UNITY_MATRIX_M, v.vertex);
                 o.normal = UnityObjectToWorldNormal(v.normal);
+                o.tangent = v.tangent;
                 return o;
             }
 
@@ -89,19 +93,42 @@
                 return a2 / (UNITY_PI * Sqr(NDotH2 * (a2 - 1) + 1));
             }
 
+            uint _Samples;
+
             fixed4 frag (v2f i) : SV_Target
             {
                 float3 normal = normalize(i.normal);
-                
+                float3 tangent = i.tangent.xyz;
+                float3 bitangent = cross(i.normal, i.tangent.xyz) * i.tangent.w;
+
                 float3 viewDirection = normalize(_WorldSpaceCameraPos - i.pos.xyz);
                 
                 // Replace this specular calculation by Montecarlo.
                 // Normalize the BRDF in such a way, that integral over a hemysphere of (BRDF * dot(normal, w')) == 1
                 // TIP: use Random(i) to get a pseudo-random value.
-                float3 viewRefl = reflect(-viewDirection.xyz, normal);
-                float3 specular = SampleColor(viewRefl);
+
+                float3 numerator = float3(0, 0, 0);
+                float3 denominator = float3(0, 0, 0);
                 
-                return fixed4(specular, 1);
+                for (uint it = 0; it <= _Samples; it++)
+                {
+                    float cos_theta = Random(it);
+                    float sin_theta = sqrt(1 - Sqr(cos_theta));
+
+                    float alpha = Random(it + _Samples) * 2 * UNITY_PI;
+                    float cos_alpha = cos(alpha);
+                    float sin_alpha = sin(alpha);
+                    
+                    float3 w_ = sin_theta * cos_alpha * tangent
+                        + sin_theta * sin_alpha * bitangent
+                        + cos_theta * normal; 
+                    
+                    float3 sample = GetSpecularBRDF(viewDirection, w_, normal) * cos_theta;
+                    numerator += SampleColor(w_) * sample;
+                    denominator += sample;
+                }
+                
+                return fixed4(numerator / denominator, 1);
             }
             ENDCG
         }
