@@ -73,6 +73,7 @@ Material:
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _Roughness: 0.4
+    - _Samples: 1024
     - _Shininess: 23.25
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
