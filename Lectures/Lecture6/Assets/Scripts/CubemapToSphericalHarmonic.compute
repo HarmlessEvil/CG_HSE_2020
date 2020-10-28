@@ -10,6 +10,18 @@
 #define HALF_PI       1.57079632679f
 #define INV_HALF_PI   0.636619772367f
 
+#define Y_0_0         0.2820947918f // -1 / (2 * sqrt(PI))
+
+#define Y_1_INV_1(v)  (-0.4886025119f * v.y) // (-sqrt(3) / (2 * sqrt(PI))) * y
+#define Y_1_0(v)      (0.4886025119f * v.z) // (sqrt(3) / (2 * sqrt(PI))) * z
+#define Y_1_1(v)      (0.4886025119f * v.x) // (sqrt(3) / (2 * sqrt(PI))) * x
+
+#define Y_2_INV_2(v)  (1.0925484306f * v.y * v.x) // (sqrt(15) / (2 * sqrt(PI))) * y * x
+#define Y_2_INV_1(v)  (-1.0925484306f * v.y * v.z) // (-sqrt(15) / (2 * sqrt(PI))) * y * z
+#define Y_2_0(v)      (0.9461746958f * v.z * v.z - 0.3153915653f) // ((3 * sqrt(5)) / (4 * sqrt(pi))) * z^2 - (sqrt(5) / (4 * sqrt(pi)))
+#define Y_2_1(v)      (-1.0925484306f * v.x * v.z) // (-sqrt(15) / (2 * sqrt(PI))) * x * z
+#define Y_2_2(v)      (-0.5462742153f * (v.x * v.x - v.y * v.y)) // (-sqrt(15) / (4 * sqrt(PI))) * (x^2 - y^2)
+
 RWStructuredBuffer<float4> SH_0_1_r;
 RWStructuredBuffer<float4> SH_0_1_g;
 RWStructuredBuffer<float4> SH_0_1_b;
@@ -45,6 +57,11 @@ float3 SampleColor(float3 direction)
     return tex.rgb;
 }
 
+float pow2(float x)
+{
+    return x * x;
+}
+
 [numthreads(1024, 1, 1)]
 void ComputeHarmonics(uint id : SV_DispatchThreadID)
 {
@@ -68,6 +85,72 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     // You can see the Random(i) function. Use it just as with the previous task.
     
     // TASK: project light from _Env to spherical harmonic coefficients and store them in results[]
+
+    for (int i = 0; i < SAMPLES; ++i)
+    {
+        float cos_theta = Random(i) * 2 - 1;
+        float sin_theta = sqrt(1 - pow2(cos_theta));
+        if (Random(i + 2 * SAMPLES) > 0.5f)
+        {
+            sin_theta *= -1;
+        }
+
+        float alpha = Random(i + SAMPLES) * 2 * PI;
+        float cos_alpha = cos(alpha);
+        float sin_alpha = sin(alpha);
+
+        float3 w;
+        w.x = sin_theta * cos_alpha;
+        w.y = sin_theta * sin_alpha;
+        w.z = cos_theta;
+
+        float3 light = SampleColor(w);
+        
+        results[0].w += light.r * Y_0_0;
+        results[1].w += light.g * Y_0_0;
+        results[2].w += light.b * Y_0_0;
+
+        results[0].x += light.r * Y_1_INV_1(w);
+        results[1].x += light.g * Y_1_INV_1(w);
+        results[2].x += light.b * Y_1_INV_1(w);
+
+        results[0].y += light.r * Y_1_0(w);
+        results[1].y += light.g * Y_1_0(w);
+        results[2].y += light.b * Y_1_0(w);
+
+        results[0].z += light.r * Y_1_1(w);
+        results[1].z += light.g * Y_1_1(w);
+        results[2].z += light.b * Y_1_1(w);
+
+        results[3].x += light.r * Y_2_INV_2(w);
+        results[4].x += light.g * Y_2_INV_2(w);
+        results[5].x += light.b * Y_2_INV_2(w);
+
+        results[3].y += light.r * Y_2_INV_1(w);
+        results[4].y += light.g * Y_2_INV_1(w);
+        results[5].y += light.b * Y_2_INV_1(w);
+
+        results[3].z += light.r * Y_2_0(w);
+        results[4].z += light.g * Y_2_0(w);
+        results[5].z += light.b * Y_2_0(w);
+
+        results[3].w += light.r * Y_2_1(w);
+        results[4].w += light.g * Y_2_1(w);
+        results[5].w += light.b * Y_2_1(w);
+
+        results[6].x += light.r * Y_2_2(w);
+        results[6].y += light.g * Y_2_2(w);
+        results[6].z += light.b * Y_2_2(w);
+    }
+
+    results[0].xyz *= 0.6666666667f; // 2/3
+    results[1].xyz *= 0.6666666667f;
+    results[2].xyz *= 0.6666666667f;
+
+    results[3] *= 0.25f; 
+    results[4] *= 0.25f;
+    results[5] *= 0.25f;
+    results[6] *= 0.25f;
     
     SH_0_1_r[id] = results[0];
     SH_0_1_g[id] = results[1];
