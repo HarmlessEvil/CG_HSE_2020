@@ -18,7 +18,7 @@
 
 #define Y_2_INV_2(v)  (1.0925484306f * v.y * v.x) // (sqrt(15) / (2 * sqrt(PI))) * y * x
 #define Y_2_INV_1(v)  (-1.0925484306f * v.y * v.z) // (-sqrt(15) / (2 * sqrt(PI))) * y * z
-#define Y_2_0(v)      (0.9461746958f * v.z * v.z - 0.3153915653f) // ((3 * sqrt(5)) / (4 * sqrt(pi))) * z^2 - (sqrt(5) / (4 * sqrt(pi)))
+#define Y_2_0(v)      (0.3153915653f * (3 * v.z * v.z - 1)) // (sqrt(5) / (4 * sqrt(PI))) * (3 * z^2 - 1)
 #define Y_2_1(v)      (-1.0925484306f * v.x * v.z) // (-sqrt(15) / (2 * sqrt(PI))) * x * z
 #define Y_2_2(v)      (-0.5462742153f * (v.x * v.x - v.y * v.y)) // (-sqrt(15) / (4 * sqrt(PI))) * (x^2 - y^2)
 
@@ -66,7 +66,7 @@ float pow2(float x)
 void ComputeHarmonics(uint id : SV_DispatchThreadID)
 {
     const int THREADS = 1024;
-    const int SAMPLES = 100;
+    const int SAMPLES = 5000;
     
     // See SH.shader for more details
     float4 results[7] = {
@@ -123,20 +123,19 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
         results[2].z += light.b * Y_1_1(w);
 
         results[3].x += light.r * Y_2_INV_2(w);
-        results[4].x += light.g * Y_2_INV_2(w);
-        results[5].x += light.b * Y_2_INV_2(w);
-
         results[3].y += light.r * Y_2_INV_1(w);
+        results[3].z += light.r * Y_2_1(w);
+        results[3].w += light.r * Y_2_0(w);
+
+        results[4].x += light.g * Y_2_INV_2(w);
         results[4].y += light.g * Y_2_INV_1(w);
+        results[4].z += light.g * Y_2_1(w);
+        results[4].w += light.g * Y_2_0(w);
+
+        results[5].x += light.b * Y_2_INV_2(w);
         results[5].y += light.b * Y_2_INV_1(w);
-
-        results[3].z += light.r * Y_2_0(w);
-        results[4].z += light.g * Y_2_0(w);
-        results[5].z += light.b * Y_2_0(w);
-
-        results[3].w += light.r * Y_2_1(w);
-        results[4].w += light.g * Y_2_1(w);
-        results[5].w += light.b * Y_2_1(w);
+        results[5].z += light.b * Y_2_1(w);
+        results[5].w += light.b * Y_2_0(w);
 
         results[6].x += light.r * Y_2_2(w);
         results[6].y += light.g * Y_2_2(w);
@@ -152,13 +151,13 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     results[5] *= 0.25f;
     results[6] *= 0.25f;
     
-    SH_0_1_r[id] = results[0];
-    SH_0_1_g[id] = results[1];
-    SH_0_1_b[id] = results[2];
+    SH_0_1_r[id] = results[0] * FOUR_PI / SAMPLES;
+    SH_0_1_g[id] = results[1] * FOUR_PI / SAMPLES;
+    SH_0_1_b[id] = results[2] * FOUR_PI / SAMPLES;
     
-    SH_2_r[id] = results[3];
-    SH_2_g[id] = results[4];
-    SH_2_b[id] = results[5];    
+    SH_2_r[id] = results[3] * FOUR_PI / SAMPLES;
+    SH_2_g[id] = results[4] * FOUR_PI / SAMPLES;
+    SH_2_b[id] = results[5] * FOUR_PI / SAMPLES;    
     
-    SH_2_rgb[id] = results[6];
+    SH_2_rgb[id] = results[6] * FOUR_PI / SAMPLES;
 }
