@@ -9,17 +9,31 @@
 #define HALF_PI       1.57079632679f
 #define INV_HALF_PI   0.636619772367f
 
-#define Y_0_0         (2 * sqrt(PI))
+#define K_0_0         1.0f
 
-#define Y_1_INV_1(v)  (0.2387324146f * v.y) // (-sqrt(3) / (2 * sqrt(PI))) * y
-#define Y_1_0(v)      (0.2387324146f * v.z) // (sqrt(3) / (2 * sqrt(PI))) * z
-#define Y_1_1(v)      (0.2387324146f * v.x) // (sqrt(3) / (2 * sqrt(PI))) * x
+#define K_1_INV_1     2.0f
+#define P_1_INV_1(v)  (v.y)
 
-#define Y_2_INV_2(v)  (1.1936620732f * v.y * v.x) // (sqrt(15) / (2 * sqrt(PI))) * y * x
-#define Y_2_INV_1(v)  (1.1936620732f * v.y * v.z) // (-sqrt(15) / (2 * sqrt(PI))) * y * z
-#define Y_2_0(v)      (0.09947183946f * (3 * v.z * v.z - 1)) // (sqrt(5) / (4 * sqrt(PI))) * (3 * z^2 - 1)
-#define Y_2_1(v)      (1.1936620732f * v.x * v.z) // (-sqrt(15) / (2 * sqrt(PI))) * x * z
-#define Y_2_2(v)      (0.2984155183f * (v.x * v.x - v.y * v.y)) // (-sqrt(15) / (4 * sqrt(PI))) * (x^2 - y^2)
+#define K_1_0         2.0f
+#define P_1_0(v)      (v.z)
+
+#define K_1_1         2.0f
+#define P_1_1(v)      (v.x)
+
+#define K_2_INV_2     3.75f
+#define P_2_INV_2(v)  (v.y * v.x)
+
+#define K_2_INV_1     3.75f
+#define P_2_INV_1(v)  (v.y * v.z)
+
+#define K_2_0         0.625f // 5 / 8
+#define P_2_0(v)      (3 * v.z * v.z - 1)
+
+#define K_2_1         3.75f
+#define P_2_1(v)      (v.x * v.z)
+
+#define K_2_2         0.234375f // 15 / 64
+#define P_2_2(v)      (v.x * v.x - v.y * v.y)
 
 RWStructuredBuffer<float4> SH_0_1_r;
 RWStructuredBuffer<float4> SH_0_1_g;
@@ -61,27 +75,6 @@ float pow2(float x)
     return x * x;
 }
 
-float4 Evaluate_SH_0_1(float3 normal)
-{
-    float3 c = normal.xyz * 3.0f / 4.0f / PI;
-    return float4(
-        c,
-        1.0f / 4.0f / PI
-    );
-}
-
-float4 Evaluate_SH_2(float3 normal)
-{
-    float4 vB = normal.xyzz * normal.yzxz;
-    float3 c = vB.xyz * 15 / 4 / PI;
-    return float4(
-         c.x,
-         c.y,
-         c.z,
-        (3.f * vB.w - 1.f) * 5 / 16.0f / PI
-    );
-}
-
 [numthreads(1024, 1, 1)]
 void ComputeHarmonics(uint id : SV_DispatchThreadID)
 {
@@ -105,14 +98,105 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     // You can see the Random(i) function. Use it just as with the previous task.
     
     // TASK: project light from _Env to spherical harmonic coefficients and store them in results[]
+
+    for (int i = 0; i < SAMPLES; ++i)
+    {
+        uint seed = THREADS * id + i;
+        float cos_theta = Random(seed) * 2 - 1;
+        float sin_theta = sqrt(1 - pow2(cos_theta));
+        if (Random(seed + 2 * SAMPLES) > 0.5f)
+        {
+            sin_theta *= -1;
+        }
+
+        float alpha = Random(seed + SAMPLES) * 2 * PI;
+        float cos_alpha = cos(alpha);
+        float sin_alpha = sin(alpha);
+
+        float3 w;
+        w.x = sin_theta * cos_alpha;
+        w.y = sin_theta * sin_alpha;
+        w.z = cos_theta;
+
+        float3 light = SampleColor(w);
+
+        results[0].w += light.r;
+        results[1].w += light.g;
+        results[2].w += light.b;
+
+        results[0].x += light.r * P_1_INV_1(w);
+        results[1].x += light.g * P_1_INV_1(w);
+        results[2].x += light.b * P_1_INV_1(w);
+
+        results[0].y += light.r * P_1_0(w);
+        results[1].y += light.g * P_1_0(w);
+        results[2].y += light.b * P_1_0(w);
+
+        results[0].z += light.r * P_1_1(w);
+        results[1].z += light.g * P_1_1(w);
+        results[2].z += light.b * P_1_1(w);
+
+        results[3].x += light.r * P_2_INV_2(w);
+        results[3].y += light.r * P_2_INV_1(w);
+        results[3].z += light.r * P_2_1(w);
+        results[3].w += light.r * P_2_0(w);
+
+        results[4].x += light.g * P_2_INV_2(w);
+        results[4].y += light.g * P_2_INV_1(w);
+        results[4].z += light.g * P_2_1(w);
+        results[4].w += light.g * P_2_0(w);
+
+        results[5].x += light.b * P_2_INV_2(w);
+        results[5].y += light.b * P_2_INV_1(w);
+        results[5].z += light.b * P_2_1(w);
+        results[5].w += light.b * P_2_0(w);
+
+        results[6].x += light.r * P_2_2(w);
+        results[6].y += light.g * P_2_2(w);
+        results[6].z += light.b * P_2_2(w);
+    }
+
+    results[0].w *= K_0_0;
+    results[1].w *= K_0_0;
+    results[2].w *= K_0_0;
+
+    results[0].x *= K_1_INV_1;
+    results[1].x *= K_1_INV_1;
+    results[2].x *= K_1_INV_1;
+
+    results[0].y *= K_1_0;
+    results[1].y *= K_1_0;
+    results[2].y *= K_1_0;
+
+    results[0].z *= K_1_1;
+    results[1].z *= K_1_1;
+    results[2].z *= K_1_1;
+
+    results[3].x *= K_2_INV_2;
+    results[4].x *= K_2_INV_2;
+    results[5].x *= K_2_INV_2;
     
-    SH_0_1_r[id] = results[0];
-    SH_0_1_g[id] = results[1];
-    SH_0_1_b[id] = results[2];
+    results[3].y *= K_2_INV_1;
+    results[4].y *= K_2_INV_1;
+    results[5].y *= K_2_INV_1;
+
+    results[3].z *= K_2_1;
+    results[4].z *= K_2_1;
+    results[5].z *= K_2_1;
+
+    results[3].w *= K_2_2;
+    results[4].w *= K_2_2;
+    results[5].w *= K_2_2;
     
-    SH_2_r[id] = results[3];
-    SH_2_g[id] = results[4];
-    SH_2_b[id] = results[5];    
+    results[6] *= K_2_0;
     
-    SH_2_rgb[id] = results[6];
+    SH_0_1_r[id] = results[0] / SAMPLES;
+    SH_0_1_g[id] = results[1] / SAMPLES;
+    SH_0_1_b[id] = results[2] / SAMPLES;
+    
+    SH_2_r[id] = results[3] / SAMPLES;
+    SH_2_g[id] = results[4] / SAMPLES;
+    SH_2_b[id] = results[5] / SAMPLES;    
+    
+    SH_2_rgb[id] = results[6] / SAMPLES;
 }

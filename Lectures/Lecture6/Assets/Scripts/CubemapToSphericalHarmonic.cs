@@ -94,7 +94,7 @@ public class CubemapToSphericalHarmonic : MonoBehaviour
             {
                 if (Mathf.Abs(current[i] - correct[i]) > 0.008f)
                 {
-                    Debug.LogError($"Difference in {current:F4} and {correct:F4} in position {i}");
+                    Debug.LogError($"{bufferSetup.Name} Difference in {current:F4} and {correct:F4} in position {i}");
                     foundDifference = true;
                 }
             }
